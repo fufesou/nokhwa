@@ -32,7 +32,7 @@ macro_rules! make_lib_wrapper {
                 let lib = match Library::open(&lib_name) {
                     Ok(lib) => Some(lib),
                     Err(e) => {
-                        eprintln!("Failed to load library {}, {}", &lib_name, e);
+                        eprintln!("Failed to load library {}: {} (Error code: {:?})", &lib_name, e, std::io::Error::last_os_error());
                         None
                     }
                 };
@@ -68,7 +68,14 @@ macro_rules! make_lib_wrapper {
 }
 
 fn get_lib_name(dll_name: &str) -> String {
-    format!("{}.dll", dll_name)
+    // On 64-bit Windows, 32-bit DLLs are in SysWOW64
+    let lib_name = if cfg!(target_arch = "x86") && cfg!(target_os = "windows") {
+        format!("C:\\Windows\\SysWOW64\\{}.dll", dll_name)
+    } else {
+        format!("{}.dll", dll_name)
+    };
+    println!("================ lib name: {}", &lib_name);
+    lib_name
 }
 
 pub type FnMFEnumDeviceSources = fn(*mut c_void, *mut *mut *mut c_void, *mut UINT32) -> HRESULT;
@@ -166,10 +173,14 @@ pub unsafe fn MFStartup(version: u32, dwflags: u32) -> ::windows::core::Result<(
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFStartup {
         println!("=================================== MFStartup 11");
-        let x = f(version, dwflags).ok();
+        println!("MFStartup version: {}, flags: {:x}", version, dwflags);
+        let result = f(version, dwflags);
+        println!("MFStartup raw result: {:?}", result);
+        let x = result.ok();
         println!("=================================== MFStartup 22: {:?}", &x);
         x
     } else {
+        println!("MFStartup function not found in library");
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
 }
@@ -221,5 +232,22 @@ where
     x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
+    }
+}
+
+pub unsafe fn cleanup() {
+    println!("Cleaning up Media Foundation...");
+    if let Err(e) = MFShutdown() {
+        eprintln!("Error during MFShutdown: {:?}", e);
+    }
+}
+
+impl Drop for MFPlatWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            if let Some(f) = self.MFShutdown {
+                let _ = f().ok();
+            }
+        }
     }
 }

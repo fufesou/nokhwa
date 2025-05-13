@@ -198,6 +198,15 @@ pub mod wmf {
             }
 
             println!("====================== initialize_mf 2");
+let _ = unsafe { MFStartup(MF_API_VERSION, MFSTARTUP_NOSOCKET) };
+   println!("====================== initialize_mf 2.1");
+            // unsafe {
+            //         CoUninitialize();
+            //     }
+             return Err(NokhwaError::InitializeError {
+                    backend: ApiBackend::MediaFoundation,
+                    error: "aaa".to_string(),
+                });
 
             if let Err(why) = unsafe { MFStartup(MF_API_VERSION, MFSTARTUP_NOSOCKET) } {
                 println!("====================== initialize_mf 2.5");
