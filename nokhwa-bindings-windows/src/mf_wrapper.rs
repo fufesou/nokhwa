@@ -119,12 +119,16 @@ where
 {
     let lib = MF_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFEnumDeviceSources {
+        println!("=================================== MFEnumDeviceSources 11");
+        let x = 
         f(
             pattributes.into().abi() as _,
             ::core::mem::transmute(pppsourceactivate),
             ::core::mem::transmute(pcsourceactivate),
         )
-        .ok()
+        .ok();
+    println!("=================================== MFEnumDeviceSources 22");
+    x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -134,7 +138,10 @@ pub unsafe fn MFCreateMediaType() -> ::windows::core::Result<IMFMediaType> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateMediaType {
         let mut result__ = ::core::mem::MaybeUninit::zeroed();
-        f(::core::mem::transmute(result__.as_mut_ptr())).from_abi::<IMFMediaType>(result__)
+        println!("=================================== MFCreateMediaType 11");
+        let x = f(::core::mem::transmute(result__.as_mut_ptr())).from_abi::<IMFMediaType>(result__);
+        println!("=================================== MFCreateMediaType 22");
+        x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -146,7 +153,10 @@ pub unsafe fn MFCreateAttributes(
 ) -> ::windows::core::Result<()> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateAttributes {
-        f(::core::mem::transmute(ppmfattributes), cinitialsize).ok()
+        println!("=================================== MFCreateAttributes 11");
+        let x = f(::core::mem::transmute(ppmfattributes), cinitialsize).ok();
+        println!("=================================== MFCreateAttributes 22");
+        x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -155,7 +165,10 @@ pub unsafe fn MFCreateAttributes(
 pub unsafe fn MFStartup(version: u32, dwflags: u32) -> ::windows::core::Result<()> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFStartup {
-        f(version, dwflags).ok()
+        println!("=================================== MFStartup 11");
+        let x = f(version, dwflags).ok();
+        println!("=================================== MFStartup 22");
+        x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -164,7 +177,10 @@ pub unsafe fn MFStartup(version: u32, dwflags: u32) -> ::windows::core::Result<(
 pub unsafe fn MFShutdown() -> ::windows::core::Result<()> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFShutdown {
-        f().ok()
+         println!("=================================== MFShutdown 11");
+        let x = f().ok();
+         println!("=================================== MFShutdown 22");
+         x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -174,7 +190,10 @@ pub unsafe fn MFCreateSample() -> ::windows::core::Result<IMFSample> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateSample {
         let mut result__ = ::core::mem::MaybeUninit::zeroed();
-        f(::core::mem::transmute(result__.as_mut_ptr())).from_abi::<IMFSample>(result__)
+         println!("=================================== MFCreateSample 11");
+        let x = f(::core::mem::transmute(result__.as_mut_ptr())).from_abi::<IMFSample>(result__);
+         println!("=================================== MFCreateSample 22");
+         x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -191,12 +210,15 @@ where
     let lib = MF_READ_WRITE_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateSourceReaderFromMediaSource {
         let mut result__ = ::core::mem::MaybeUninit::zeroed();
-        f(
+        println!("=================================== MFCreateSourceReaderFromMediaSource 11");
+        let x = f(
             pmediasource.into().abi() as _,
             pattributes.into().abi() as _,
             ::core::mem::transmute(result__.as_mut_ptr()),
         )
-        .from_abi::<IMFSourceReader>(result__)
+        .from_abi::<IMFSourceReader>(result__);
+    println!("=================================== MFCreateSourceReaderFromMediaSource 22");
+    x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
