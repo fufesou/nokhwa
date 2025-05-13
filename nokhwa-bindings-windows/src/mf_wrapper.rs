@@ -40,11 +40,11 @@ macro_rules! make_lib_wrapper {
                 $(let $field = if let Some(lib) = &lib {
                     match unsafe { lib.symbol::<$tp>(stringify!($field)) } {
                         Ok(m) => {
-                            // println!("method found {}", stringify!($field));
+                            // println!("Successfully loaded function: {}", stringify!($field));
                             Some(*m)
                         },
                         Err(e) => {
-                            eprintln!("Failed to load func {}, {}", stringify!($field), e);
+                            eprintln!("Failed to load func {}: {}", stringify!($field), e);
                             None
                         }
                     }
@@ -68,17 +68,11 @@ macro_rules! make_lib_wrapper {
 }
 
 fn get_lib_name(dll_name: &str) -> String {
-    // On 64-bit Windows, 32-bit DLLs are in SysWOW64
-    let lib_name = if cfg!(target_arch = "x86") && cfg!(target_os = "windows") {
-        format!("C:\\Windows\\SysWOW64\\{}.dll", dll_name)
-    } else {
-        format!("{}.dll", dll_name)
-    };
-    println!("================ lib name: {}", &lib_name);
-    lib_name
+    format!("{}.dll", dll_name)
 }
 
-pub type FnMFEnumDeviceSources = fn(*mut c_void, *mut *mut *mut c_void, *mut UINT32) -> HRESULT;
+pub type FnMFEnumDeviceSources =
+    unsafe extern "system" fn(*mut c_void, *mut *mut *mut c_void, *mut UINT32) -> HRESULT;
 
 make_lib_wrapper!(
     MFWrapper,
@@ -86,11 +80,11 @@ make_lib_wrapper!(
     MFEnumDeviceSources: FnMFEnumDeviceSources
 );
 
-pub type FnMFCreateMediaType = fn(*mut *mut c_void) -> HRESULT;
-pub type FnMFCreateAttributes = fn(*mut *mut c_void, UINT32) -> HRESULT;
-pub type FnMFStartup = fn(ULONG, DWORD) -> HRESULT;
-pub type FnMFShutdown = fn() -> HRESULT;
-pub type FnMFCreateSample = fn(*mut *mut c_void) -> HRESULT;
+pub type FnMFCreateMediaType = unsafe extern "system" fn(*mut *mut c_void) -> HRESULT;
+pub type FnMFCreateAttributes = unsafe extern "system" fn(*mut *mut c_void, UINT32) -> HRESULT;
+pub type FnMFStartup = unsafe extern "system" fn(ULONG, DWORD) -> HRESULT;
+pub type FnMFShutdown = unsafe extern "system" fn() -> HRESULT;
+pub type FnMFCreateSample = unsafe extern "system" fn(*mut *mut c_void) -> HRESULT;
 
 make_lib_wrapper!(
     MFPlatWrapper,
@@ -103,7 +97,8 @@ make_lib_wrapper!(
 );
 
 pub type FnMFCreateSourceReaderFromMediaSource =
-    fn(*mut c_void, *mut c_void, *mut *mut c_void) -> HRESULT;
+    unsafe extern "system" fn(*mut c_void, *mut c_void, *mut *mut c_void) -> HRESULT;
+
 make_lib_wrapper!(
     MFReadWriteWrapper,
     "mfreadwrite",
@@ -126,16 +121,15 @@ where
 {
     let lib = MF_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFEnumDeviceSources {
-        println!("=================================== MFEnumDeviceSources 11");
-        let x = 
-        f(
+        let result = std::mem::transmute::<
+            _,
+            unsafe extern "system" fn(*mut c_void, *mut *mut *mut c_void, *mut UINT32) -> HRESULT,
+        >(f)(
             pattributes.into().abi() as _,
             ::core::mem::transmute(pppsourceactivate),
             ::core::mem::transmute(pcsourceactivate),
-        )
-        .ok();
-    println!("=================================== MFEnumDeviceSources 22");
-    x
+        );
+        result.ok()
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -145,10 +139,10 @@ pub unsafe fn MFCreateMediaType() -> ::windows::core::Result<IMFMediaType> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateMediaType {
         let mut result__ = ::core::mem::MaybeUninit::zeroed();
-        println!("=================================== MFCreateMediaType 11");
-        let x = f(::core::mem::transmute(result__.as_mut_ptr())).from_abi::<IMFMediaType>(result__);
-        println!("=================================== MFCreateMediaType 22");
-        x
+        let result = std::mem::transmute::<_, unsafe extern "system" fn(*mut *mut c_void) -> HRESULT>(
+            f,
+        )(::core::mem::transmute(result__.as_mut_ptr()));
+        result.from_abi::<IMFMediaType>(result__)
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -160,10 +154,11 @@ pub unsafe fn MFCreateAttributes(
 ) -> ::windows::core::Result<()> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateAttributes {
-        println!("=================================== MFCreateAttributes 11");
-        let x = f(::core::mem::transmute(ppmfattributes), cinitialsize).ok();
-        println!("=================================== MFCreateAttributes 22");
-        x
+        let result = std::mem::transmute::<
+            _,
+            unsafe extern "system" fn(*mut *mut c_void, UINT32) -> HRESULT,
+        >(f)(::core::mem::transmute(ppmfattributes), cinitialsize);
+        result.ok()
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -172,15 +167,11 @@ pub unsafe fn MFCreateAttributes(
 pub unsafe fn MFStartup(version: u32, dwflags: u32) -> ::windows::core::Result<()> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFStartup {
-        println!("=================================== MFStartup 11");
-        println!("MFStartup version: {}, flags: {:x}", version, dwflags);
-        let result = f(version, dwflags);
-        println!("MFStartup raw result: {:?}", result);
-        let x = result.ok();
-        println!("=================================== MFStartup 22: {:?}", &x);
-        x
+        let result = std::mem::transmute::<_, unsafe extern "system" fn(ULONG, DWORD) -> HRESULT>(
+            f,
+        )(version, dwflags);
+        result.ok()
     } else {
-        println!("MFStartup function not found in library");
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
 }
@@ -188,10 +179,8 @@ pub unsafe fn MFStartup(version: u32, dwflags: u32) -> ::windows::core::Result<(
 pub unsafe fn MFShutdown() -> ::windows::core::Result<()> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFShutdown {
-         println!("=================================== MFShutdown 11");
-        let x = f().ok();
-         println!("=================================== MFShutdown 22");
-         x
+        let result = std::mem::transmute::<_, unsafe extern "system" fn() -> HRESULT>(f)();
+        result.ok()
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -201,10 +190,10 @@ pub unsafe fn MFCreateSample() -> ::windows::core::Result<IMFSample> {
     let lib = MF_PLAT_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateSample {
         let mut result__ = ::core::mem::MaybeUninit::zeroed();
-         println!("=================================== MFCreateSample 11");
-        let x = f(::core::mem::transmute(result__.as_mut_ptr())).from_abi::<IMFSample>(result__);
-         println!("=================================== MFCreateSample 22");
-         x
+        let result = std::mem::transmute::<_, unsafe extern "system" fn(*mut *mut c_void) -> HRESULT>(
+            f,
+        )(::core::mem::transmute(result__.as_mut_ptr()));
+        result.from_abi::<IMFSample>(result__)
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
     }
@@ -221,24 +210,17 @@ where
     let lib = MF_READ_WRITE_WRAPPER.lock().unwrap();
     if let Some(f) = lib.MFCreateSourceReaderFromMediaSource {
         let mut result__ = ::core::mem::MaybeUninit::zeroed();
-        println!("=================================== MFCreateSourceReaderFromMediaSource 11");
-        let x = f(
+        let result = std::mem::transmute::<
+            _,
+            unsafe extern "system" fn(*mut c_void, *mut c_void, *mut *mut c_void) -> HRESULT,
+        >(f)(
             pmediasource.into().abi() as _,
             pattributes.into().abi() as _,
             ::core::mem::transmute(result__.as_mut_ptr()),
-        )
-        .from_abi::<IMFSourceReader>(result__);
-    println!("=================================== MFCreateSourceReaderFromMediaSource 22");
-    x
+        );
+        result.from_abi::<IMFSourceReader>(result__)
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
-    }
-}
-
-pub unsafe fn cleanup() {
-    println!("Cleaning up Media Foundation...");
-    if let Err(e) = MFShutdown() {
-        eprintln!("Error during MFShutdown: {:?}", e);
     }
 }
 
@@ -246,7 +228,7 @@ impl Drop for MFPlatWrapper {
     fn drop(&mut self) {
         unsafe {
             if let Some(f) = self.MFShutdown {
-                let _ = f().ok();
+                let _ = std::mem::transmute::<_, unsafe extern "system" fn() -> HRESULT>(f)().ok();
             }
         }
     }
