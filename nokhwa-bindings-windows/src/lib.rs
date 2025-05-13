@@ -186,6 +186,8 @@ pub mod wmf {
 
     pub fn initialize_mf() -> Result<(), NokhwaError> {
         if !(INITIALIZED.load(Ordering::SeqCst)) {
+
+            println!("====================== initialize_mf");
             if let Err(why) = unsafe {
                 CoInitializeEx(None, CO_INIT_APARTMENT_THREADED | CO_INIT_DISABLE_OLE1DDE)
             } {
@@ -195,16 +197,22 @@ pub mod wmf {
                 });
             }
 
+            println!("====================== initialize_mf 2");
+
             if let Err(why) = unsafe { MFStartup(MF_API_VERSION, MFSTARTUP_NOSOCKET) } {
+                println!("====================== initialize_mf 2.5");
                 unsafe {
                     CoUninitialize();
                 }
+                println!("====================== initialize_mf 2.6");
                 return Err(NokhwaError::InitializeError {
                     backend: ApiBackend::MediaFoundation,
                     error: why.to_string(),
                 });
             }
+            println!("====================== initialize_mf 3");
             INITIALIZED.store(true, Ordering::SeqCst);
+            println!("====================== initialize_mf 4");
         }
         Ok(())
     }
@@ -283,7 +291,10 @@ pub mod wmf {
     }
 
     fn query_activate_pointers() -> Result<Vec<IMFActivate>, NokhwaError> {
+        println!("====================== query_activate_pointers");
         initialize_mf()?;
+
+        println!("====================== query_activate_pointers 11");
 
         let mut attributes: Option<IMFAttributes> = None;
         if let Err(why) = unsafe { MFCreateAttributes(&mut attributes, 1) } {
@@ -292,6 +303,8 @@ pub mod wmf {
                 error: why.to_string(),
             });
         }
+
+        println!("====================== query_activate_pointers 2");
 
         let attributes = match attributes {
             Some(attr) => {
@@ -319,6 +332,8 @@ pub mod wmf {
             }
         };
 
+        println!("====================== query_activate_pointers 3");
+
         let mut count: u32 = 0;
         let mut unused_mf_activate: MaybeUninit<*mut Option<IMFActivate>> = MaybeUninit::uninit();
 
@@ -331,6 +346,8 @@ pub mod wmf {
             });
         }
 
+        println!("====================== query_activate_pointers 4");
+
         let activate_list = unsafe {
             ActivateList::new(unused_mf_activate.assume_init(), count as usize).ok_or_else(
                 || NokhwaError::StructureError {
@@ -339,6 +356,8 @@ pub mod wmf {
                 },
             )?
         };
+
+        println!("====================== query_activate_pointers 5");
 
         let mut device_list = Vec::new();
 
@@ -349,6 +368,8 @@ pub mod wmf {
                 }
             }
         }
+
+        println!("====================== query_activate_pointers 6");
 
         Ok(device_list)
     }
@@ -489,6 +510,7 @@ pub mod wmf {
 
     impl MediaFoundationDevice {
         pub fn new(index: CameraIndex) -> Result<Self, NokhwaError> {
+            println!("==================== new: Creating MF device");
             initialize_mf()?;
             match index {
                 CameraIndex::Index(i) => {

@@ -167,7 +167,7 @@ pub unsafe fn MFStartup(version: u32, dwflags: u32) -> ::windows::core::Result<(
     if let Some(f) = lib.MFStartup {
         println!("=================================== MFStartup 11");
         let x = f(version, dwflags).ok();
-        println!("=================================== MFStartup 22");
+        println!("=================================== MFStartup 22: {:?}", &x);
         x
     } else {
         Err(HRESULT_ERR_NO_INTERFACE.into())
