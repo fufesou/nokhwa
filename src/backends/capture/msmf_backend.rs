@@ -48,31 +48,33 @@ impl MediaFoundationCaptureDevice {
     /// # Errors
     /// This function will error if Media Foundation fails to get the device.
     pub fn new(index: &CameraIndex, camera_fmt: RequestedFormat) -> Result<Self, NokhwaError> {
+        log::info!("================================= MediaFoundationCaptureDevice, new");
         let mut mf_device = MediaFoundationDevice::new(index.clone())?;
-
+        log::info!("================================= MediaFoundationCaptureDevice, MediaFoundationDevice new");
         let info = CameraInfo::new(
             &mf_device.name(),
             "MediaFoundation Camera Device",
             &mf_device.symlink(),
             index.clone(),
         );
-
+        log::info!("================================= MediaFoundationCaptureDevice, cam info new");
         let availible = mf_device.compatible_format_list()?;
-
+        log::info!("================================= MediaFoundationCaptureDevice, compatible_format_list");
         let desired = camera_fmt
             .fulfill(&availible)
             .ok_or(NokhwaError::InitializeError {
                 backend: ApiBackend::MediaFoundation,
                 error: "Failed to fulfill requested format".to_string(),
             })?;
-
+        log::info!("================================= MediaFoundationCaptureDevice, fulfill requested format");
         mf_device.set_format(desired)?;
-
+        log::info!("================================= MediaFoundationCaptureDevice, set format");
         let mut new_cam = MediaFoundationCaptureDevice {
             inner: mf_device,
             info,
         };
         new_cam.refresh_camera_format()?;
+        log::info!("================================= MediaFoundationCaptureDevice, refresh camera format");
         Ok(new_cam)
     }
 

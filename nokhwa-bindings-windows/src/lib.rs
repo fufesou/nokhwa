@@ -489,17 +489,23 @@ pub mod wmf {
 
     impl MediaFoundationDevice {
         pub fn new(index: CameraIndex) -> Result<Self, NokhwaError> {
+            log::info!("================================= MediaFoundationDevice, new, begin");
             initialize_mf()?;
+            log::info!("================================= MediaFoundationDevice, initialize_mf");
             match index {
                 CameraIndex::Index(i) => {
+                    log::info!("================================= MediaFoundationDevice, cam index: {}", i);
                     let (media_source, device_descriptor) =
                         match query_activate_pointers()?.into_iter().nth(i as usize) {
                             Some(activate) => {
+                                log::info!("================================= MediaFoundationDevice, query_activate_pointers");
                                 match unsafe { activate.ActivateObject::<IMFMediaSource>() } {
                                     Ok(media_source) => {
+                                        log::info!("================================= MediaFoundationDevice, ActivateObject");
                                         (media_source, activate_to_descriptors(index, &activate)?)
                                     }
                                     Err(why) => {
+                                        log::info!("================================= MediaFoundationDevice, OpenDeviceError 11");
                                         return Err(NokhwaError::OpenDeviceError(
                                             index.to_string(),
                                             why.to_string(),
@@ -508,6 +514,7 @@ pub mod wmf {
                                 }
                             }
                             None => {
+                                log::info!("================================= MediaFoundationDevice, OpenDeviceError 22");
                                 return Err(NokhwaError::OpenDeviceError(
                                     index.to_string(),
                                     "No device".to_string(),
@@ -515,16 +522,19 @@ pub mod wmf {
                             }
                         };
 
+                    log::info!("================================= MediaFoundationDevice, query_activate_pointers, end");
                     let source_reader_attr = {
                         let attr = match {
                             let mut attr: Option<IMFAttributes> = None;
 
+                            log::info!("================================= MediaFoundationDevice, MFCreateAttributes, 11");
                             if let Err(why) = unsafe { MFCreateAttributes(&mut attr, 3) } {
                                 return Err(NokhwaError::StructureError {
                                     structure: "MFCreateAttributes".to_string(),
                                     error: why.to_string(),
                                 });
                             }
+                            log::info!("================================= MediaFoundationDevice, MFCreateAttributes, 22");
                             attr
                         } {
                             Some(imf_attr) => imf_attr,
@@ -536,6 +546,7 @@ pub mod wmf {
                             }
                         };
 
+                        log::info!("================================= MediaFoundationDevice, SetUINT32, 11");
                         if let Err(why) = unsafe {
                             attr.SetUINT32(&MF_READWRITE_DISABLE_CONVERTERS, u32::from(true))
                         } {
@@ -545,25 +556,29 @@ pub mod wmf {
                                 error: why.to_string(),
                             });
                         }
-
+                    log::info!("================================= MediaFoundationDevice, SetUINT32, 22");
                         attr
                     };
+
+                    log::info!("================================= MediaFoundationDevice, MFCreateSourceReaderFromMediaSource, 11");
 
                     let source_reader = match unsafe {
                         MFCreateSourceReaderFromMediaSource(&media_source, &source_reader_attr)
                     } {
                         Ok(sr) => sr,
                         Err(why) => {
+                            log::info!("================================= MediaFoundationDevice, MFCreateSourceReaderFromMediaSource, err");
                             return Err(NokhwaError::StructureError {
                                 structure: "MFCreateSourceReaderFromMediaSource".to_string(),
                                 error: why.to_string(),
                             })
                         }
                     };
+                                        log::info!("================================= MediaFoundationDevice, MFCreateSourceReaderFromMediaSource, 22");
 
                     // increment refcnt
                     CAMERA_REFCNT.store(CAMERA_REFCNT.load(Ordering::SeqCst) + 1, Ordering::SeqCst);
-
+                    log::info!("================================= MediaFoundationDevice, CAMERA_REFCNT, load");
                     Ok(MediaFoundationDevice {
                         is_open: Cell::new(false),
                         device_specifier: device_descriptor,
@@ -572,16 +587,17 @@ pub mod wmf {
                     })
                 }
                 CameraIndex::String(s) => {
+                    log::info!("================================= MediaFoundationDevice, cam index, s: {}", &s);
                     let devicelist = query_media_foundation_descriptors()?;
                     let mut id_eq = None;
-
+                    log::info!("================================= MediaFoundationDevice, cam index, query_media_foundation_descriptors");
                     for mfdev in devicelist {
                         if mfdev.misc() == s {
                             id_eq = Some(mfdev.index().as_index()?);
                             break;
                         }
                     }
-
+                    log::info!("================================= MediaFoundationDevice, cam index, found");
                     match id_eq {
                         Some(index) => Self::new(CameraIndex::Index(index)),
                         None => Err(NokhwaError::OpenDeviceError(s, "Not Found".to_string())),
@@ -632,10 +648,12 @@ pub mod wmf {
             let mut camera_format_list = vec![];
             let mut index = 0;
 
+            log::info!("================================= compatible_format_list, begin");
             while let Ok(media_type) = unsafe {
                 self.source_reader
                     .GetNativeMediaType(MEDIA_FOUNDATION_FIRST_VIDEO_STREAM, index)
             } {
+                log::info!("================================= compatible_format_list, GetNativeMediaType");
                 let fourcc = match unsafe { media_type.GetGUID(&MF_MT_SUBTYPE) } {
                     Ok(fcc) => fcc,
                     Err(why) => {
@@ -645,7 +663,7 @@ pub mod wmf {
                         })
                     }
                 };
-
+                log::info!("================================= compatible_format_list, GetGUID");
                 let (width, height) = match unsafe { media_type.GetUINT64(&MF_MT_FRAME_SIZE) } {
                     Ok(res_u64) => {
                         let width = (res_u64 >> 32) as u32;
@@ -659,7 +677,7 @@ pub mod wmf {
                         })
                     }
                 };
-
+                log::info!("================================= compatible_format_list, GetUINT64");
                 // MFRatio is represented as 2 u32s in memory. This means we cann convert it to 2
                 let framerate_list = {
                     let mut framerates = vec![0_u32; 3];
@@ -703,7 +721,7 @@ pub mod wmf {
                     };
                     framerates
                 };
-
+                log::info!("================================= compatible_format_list, guid_to_frameformat, begin");
                 let frame_fmt = match guid_to_frameformat(fourcc) {
                     Some(fcc) => fcc,
                     None => continue,
@@ -718,6 +736,8 @@ pub mod wmf {
                         ));
                     }
                 }
+
+                log::info!("================================= compatible_format_list, guid_to_frameformat, end");
 
                 index += 1;
             }

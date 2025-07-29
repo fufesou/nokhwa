@@ -16,6 +16,7 @@ docs-only = []
 [dependencies]
 dlopen = "0.1"
 lazy_static = "1.4"
+log = "0.4"
 
 [dependencies.nokhwa-core]
 version = "0.1"
